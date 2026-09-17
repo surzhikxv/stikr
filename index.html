@@ -1,0 +1,1219 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>STIKR — генератор шрифтовых стикеров</title>
+<meta name="description" content="STIKR — онлайн-генератор шрифтовых стикеров: текст, шрифт, обводка, изгиб. Скачивание PNG с прозрачным фоном.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Alumni+Sans:wght@900&family=Caveat:wght@700&family=Comfortaa:wght@700&family=Nunito:wght@900&family=Oswald:wght@700&family=Pacifico&family=Pattaya&family=Rubik+Bubbles&family=Rubik+Iso&family=Rubik+Marker+Hatch&family=Rubik+Mono+One&family=Rubik+Spray+Paint&family=Russo+One&family=Unbounded:wght@700&display=swap" rel="stylesheet">
+<style>
+/* ── Палитра интерфейса (по ТЗ, п.2) ───────────────────────────── */
+:root{
+  --bg:#FFFFFF;
+  --ink:#111111;
+  --muted:#9A9A9A;
+  --accent:#3A5CFF;
+  --line:#E9E9E9;
+  --soft:#F5F5F6;
+  --r-s:8px;
+  --r-m:12px;
+  --radius:12px;
+  --header-h:60px;
+  --ui:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,"Helvetica Neue",Arial,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg); color:var(--ink);
+  font-family:var(--ui); font-size:14px; line-height:1.45;
+  -webkit-text-size-adjust:100%;
+  -webkit-font-smoothing:antialiased;
+}
+button{font:inherit;color:inherit;cursor:pointer}
+input,textarea,select{font:inherit;color:inherit}
+h1,h2,h3{margin:0}
+
+/* ── Шапка ─────────────────────────────────────────────────────── */
+.header{
+  position:sticky; top:0; z-index:40;
+  height:var(--header-h);
+  display:flex; align-items:center; justify-content:space-between;
+  gap:12px; padding:0 20px;
+  background:var(--bg);
+  border-bottom:1px solid var(--line);
+}
+.logo{font-size:21px; letter-spacing:.05em; font-family:'Anton',var(--ui); user-select:none}
+.header-right{display:flex; align-items:center; gap:8px}
+.user-name{font-weight:600; max-width:130px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+
+/* ── Кнопки ────────────────────────────────────────────────────── */
+.btn{
+  border:1px solid var(--line); background:#fff; border-radius:var(--r-m);
+  padding:9px 14px; font-weight:600; font-size:13px;
+  display:inline-flex; align-items:center; justify-content:center; gap:7px;
+  transition:background .15s, border-color .15s, transform .08s;
+  white-space:nowrap;
+}
+.btn:hover{background:var(--soft)}
+.btn:active{transform:translateY(1px)}
+.btn-primary{background:var(--accent); border-color:var(--accent); color:#fff}
+.btn-primary:hover{background:#2c4af0}
+.btn-ghost{border-color:transparent; background:transparent; color:var(--muted)}
+.btn-ghost:hover{background:var(--soft); color:var(--ink)}
+.btn-lg{padding:13px 20px; font-size:15px; border-radius:var(--r-m)}
+.btn[disabled]{opacity:.55; cursor:not-allowed}
+.btn.locked{position:relative}
+.btn.locked::after{
+  content:""; width:12px; height:12px; background:currentColor; flex:none;
+  -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.2' stroke-linejoin='round'%3E%3Crect x='4.5' y='10.5' width='15' height='10' rx='2'/%3E%3Cpath d='M8 10.5V7a4 4 0 0 1 8 0v3.5'/%3E%3C/svg%3E") center/contain no-repeat; mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.2' stroke-linejoin='round'%3E%3Crect x='4.5' y='10.5' width='15' height='10' rx='2'/%3E%3Cpath d='M8 10.5V7a4 4 0 0 1 8 0v3.5'/%3E%3C/svg%3E") center/contain no-repeat;
+}
+.icon-btn{
+  width:38px; height:38px; padding:0; border-radius:var(--r-m);
+  border:1px solid var(--line); background:#fff;
+  display:inline-flex; align-items:center; justify-content:center; font-size:16px;
+}
+.icon-btn:hover{background:var(--soft)}
+
+/* ── Каркас страницы ───────────────────────────────────────────── */
+.wrap{
+  max-width:1280px; margin:0 auto; padding:22px 20px 40px;
+  display:grid; grid-template-columns:minmax(0,1fr) 348px; gap:22px; align-items:start;
+}
+
+/* ── Редактор ──────────────────────────────────────────────────── */
+.editor{display:flex; flex-direction:column; gap:14px; min-width:0}
+.field-label{font-size:12.5px; font-weight:600; color:var(--muted)}
+.text-block{display:flex; flex-direction:column; gap:7px}
+.text-input{
+  width:100%; resize:none; border:1px solid var(--line); border-radius:var(--r-m);
+  padding:13px 15px; font-size:17px; font-weight:600; line-height:1.35;
+  min-height:58px; background:#fff; outline:none;
+  transition:border-color .15s, box-shadow .15s;
+}
+.text-input:focus{border-color:var(--accent); box-shadow:0 0 0 3px rgba(58,92,255,.13)}
+.text-meta{display:flex; justify-content:space-between; color:var(--muted); font-size:12px}
+
+/* Клетка = прозрачный фон, квадрат 8×8px (по ТЗ) */
+.stage{
+  position:relative; border:1px solid var(--line); border-radius:var(--radius); overflow:hidden;
+  aspect-ratio:5/3.1;
+  background-image:conic-gradient(#ECECEC 25%, #FFFFFF 0 50%, #ECECEC 0 75%, #FFFFFF 0);
+  background-size:16px 16px;
+}
+.stage svg{position:absolute; inset:0; width:100%; height:100%; display:block}
+.stage-hint{
+  position:absolute; inset:0; display:none; align-items:center; justify-content:center;
+  color:var(--muted); font-weight:600; font-size:15px; pointer-events:none;
+  background:rgba(255,255,255,.55);
+}
+.stage.is-empty .stage-hint{display:flex}
+.actions{display:flex; gap:10px; flex-wrap:wrap}
+.actions .btn-primary{flex:1 1 220px}
+
+.ic{display:none}
+.i{width:17px; height:17px; display:block}
+.mob-hint{display:none}
+.sheet-head{display:none}
+
+/* ── Панель настроек ───────────────────────────────────────────── */
+.panel{
+  border:1px solid var(--line); border-radius:var(--radius); background:#fff;
+  display:flex; flex-direction:column; overflow:hidden;
+}
+.tabs{display:flex; gap:2px; padding:6px; border-bottom:1px solid var(--line); overflow-x:auto; scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{
+  border:0; background:transparent; border-radius:var(--r-s); padding:8px 9px;
+  font-size:12.5px; font-weight:600; color:var(--muted); white-space:nowrap;
+}
+.tab:hover{background:var(--soft); color:var(--ink)}
+.tab.active{background:var(--ink); color:#fff}
+.tab-body{padding:16px; display:none; max-height:min(62vh,640px); overflow:auto}
+.tab-body.active{display:block}
+.group-title{font-size:12.5px; font-weight:600; color:var(--muted); margin:16px 0 8px}
+.group-title:first-child{margin-top:0}
+.row{display:flex; align-items:center; justify-content:space-between; gap:10px; margin:12px 0}
+.row:first-child{margin-top:0}
+.row-label{font-weight:600; font-size:13px}
+.row-value{font-variant-numeric:tabular-nums; color:var(--muted); font-size:12px; min-width:44px; text-align:right}
+
+input[type=range]{
+  -webkit-appearance:none; appearance:none; width:100%; height:22px;
+  background:transparent; accent-color:var(--accent); outline:none;
+}
+input[type=range]::-webkit-slider-runnable-track{height:4px; background:var(--line); border-radius:99px}
+input[type=range]::-moz-range-track{height:4px; background:var(--line); border-radius:99px}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none; width:18px; height:18px; border-radius:50%;
+  background:var(--accent); border:3px solid #fff; box-shadow:0 1px 4px rgba(0,0,0,.25); margin-top:-7px;
+}
+input[type=range]::-moz-range-thumb{
+  width:14px; height:14px; border-radius:50%; background:var(--accent);
+  border:3px solid #fff; box-shadow:0 1px 4px rgba(0,0,0,.25);
+}
+
+.swatches{display:flex; align-items:center; gap:8px; flex-wrap:wrap}
+.sw{width:28px; height:28px; border-radius:50%; border:1px solid rgba(0,0,0,.16); padding:0}
+.sw.active{box-shadow:0 0 0 2px #fff, 0 0 0 4px var(--accent)}
+input[type=color][disabled]{opacity:.4; cursor:not-allowed}
+input[type=color]{
+  width:34px; height:28px; padding:0; border:1px solid var(--line);
+  border-radius:var(--r-s); background:#fff; cursor:pointer;
+}
+
+.cards{display:grid; grid-template-columns:1fr 1fr; gap:8px}
+.card{
+  border:1.5px solid var(--line); background:#fff; border-radius:var(--r-m); padding:11px 10px;
+  text-align:center; font-size:15px; line-height:1.2; position:relative; overflow:hidden;
+  transition:border-color .15s, background .15s;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; min-height:56px;
+}
+.card:hover{background:var(--soft)}
+.card.active{border-color:var(--accent); background:rgba(58,92,255,.06)}
+.card .cap{font-family:var(--ui); font-size:12px; font-weight:600}
+.card svg{display:block}
+
+.seg{display:flex; border:1px solid var(--line); border-radius:var(--r-m); overflow:hidden}
+.seg button{flex:1; border:0; background:#fff; padding:8px 6px; font-size:12px; font-weight:600; color:var(--muted)}
+.seg button.active{background:var(--ink); color:#fff}
+
+.switch{position:relative; width:42px; height:24px; border-radius:99px; background:var(--line); border:0; padding:0; transition:background .18s}
+.switch::after{content:""; position:absolute; top:3px; left:3px; width:18px; height:18px; border-radius:50%; background:#fff; box-shadow:0 1px 3px rgba(0,0,0,.3); transition:transform .18s}
+.switch.on{background:var(--accent)}
+.switch.on::after{transform:translateX(18px)}
+
+/* PRO-замок */
+.lockable{position:relative}
+.lockable.locked > *{opacity:.45; filter:grayscale(.35)}
+.lockable.locked::after{
+  content:""; position:absolute; top:8px; right:8px; width:15px; height:15px;
+  background:var(--ink); pointer-events:none;
+  -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.2' stroke-linejoin='round'%3E%3Crect x='4.5' y='10.5' width='15' height='10' rx='2'/%3E%3Cpath d='M8 10.5V7a4 4 0 0 1 8 0v3.5'/%3E%3C/svg%3E") center/contain no-repeat; mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.2' stroke-linejoin='round'%3E%3Crect x='4.5' y='10.5' width='15' height='10' rx='2'/%3E%3Cpath d='M8 10.5V7a4 4 0 0 1 8 0v3.5'/%3E%3C/svg%3E") center/contain no-repeat;
+}
+.pro-banner{
+  margin:16px; margin-top:0; padding:14px; border-radius:var(--r-m);
+  background:var(--ink); color:#fff;
+}
+.pro-banner b{display:block; font-size:14px; margin-bottom:3px}
+.pro-banner p{margin:0 0 10px; font-size:12px; color:#c9c9c9}
+.pro-banner .btn{width:100%; background:var(--accent); border-color:var(--accent); color:#fff}
+.pro-badge{
+  display:inline-block; font-size:10px; font-weight:800; letter-spacing:.08em;
+  padding:2px 6px; border-radius:var(--r-s); background:var(--ink); color:#fff; vertical-align:middle;
+}
+.hint{color:var(--muted); font-size:12px; margin:10px 0 0}
+
+/* ── Модальные окна ────────────────────────────────────────────── */
+.modal{position:fixed; inset:0; z-index:60; display:none; align-items:center; justify-content:center; padding:18px}
+.modal.open{display:flex}
+.modal-back{position:absolute; inset:0; background:rgba(17,17,17,.45)}
+.modal-box{
+  position:relative; background:#fff; border-radius:var(--r-m); width:100%; max-width:420px;
+  padding:22px; box-shadow:0 24px 60px rgba(0,0,0,.25); max-height:88vh; overflow:auto;
+}
+.modal-box.wide{max-width:780px}
+.modal-head{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px}
+.modal-head h2{font-size:18px; font-weight:800}
+.close{border:0; background:transparent; font-size:22px; line-height:1; color:var(--muted); padding:2px 6px}
+.close:hover{color:var(--ink)}
+.input{
+  width:100%; border:1px solid var(--line); border-radius:var(--r-m); padding:11px 13px;
+  font-size:15px; outline:none; margin-bottom:10px; background:#fff;
+}
+.input:focus{border-color:var(--accent); box-shadow:0 0 0 3px rgba(58,92,255,.13)}
+.err{color:#FF3B30; font-size:12.5px; min-height:17px; margin:0 0 8px}
+.price{font-size:30px; font-weight:800; margin:4px 0 2px}
+.price small{font-size:14px; font-weight:600; color:var(--muted)}
+.pro-list{list-style:none; padding:0; margin:14px 0 18px; font-size:13.5px}
+.pro-list li{padding:6px 0 6px 24px; position:relative}
+.pro-list li::before{content:"—"; position:absolute; left:0; color:var(--muted)}
+.gal-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:12px}
+.gal-item{border:1px solid var(--line); border-radius:var(--r-m); overflow:hidden; background:#fff; padding:0; text-align:left}
+.gal-item:hover{border-color:var(--accent)}
+.gal-pic{
+  aspect-ratio:5/3.1;
+  background-image:conic-gradient(#ECECEC 25%,#FFFFFF 0 50%,#ECECEC 0 75%,#FFFFFF 0);
+  background-size:16px 16px; position:relative;
+}
+.gal-pic svg{position:absolute; inset:0; width:100%; height:100%}
+.gal-cap{padding:9px 11px; font-size:12px; color:var(--muted); border-top:1px solid var(--line)}
+.gal-cap b{display:block; color:var(--ink); font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.empty{color:var(--muted); text-align:center; padding:34px 10px; font-size:14px}
+
+/* ── Тост ──────────────────────────────────────────────────────── */
+.toast{
+  position:fixed; left:50%; bottom:26px; transform:translate(-50%,20px);
+  background:var(--ink); color:#fff; padding:11px 16px; border-radius:var(--r-m);
+  font-size:13px; font-weight:600; z-index:80; opacity:0; pointer-events:none;
+  transition:opacity .2s, transform .2s; max-width:90vw; text-align:center;
+}
+.toast.show{opacity:1; transform:translate(-50%,0)}
+
+/* ── Нижняя панель (телефон) ───────────────────────────────────── */
+.mobile-bar{
+  display:none; position:fixed; left:0; right:0; bottom:0; z-index:45;
+  gap:8px; padding:9px 12px calc(9px + env(safe-area-inset-bottom));
+  background:var(--bg); border-top:1px solid var(--line);
+}
+/* прозрачная подложка: ловит тап мимо шторки, но не затемняет стикер, который настраивают */
+.sheet-back{position:fixed; inset:0; background:transparent; z-index:48; display:none}
+.sheet-back.open{display:block}
+
+/* ── Телефон / планшет ─────────────────────────────────────────── */
+@media (max-width:960px){
+  .wrap{grid-template-columns:1fr; padding:14px 14px 120px; gap:14px}
+  /* стикер сверху, поле ввода под ним (по ТЗ) */
+  .editor{display:flex; flex-direction:column}
+  .stage{order:1; aspect-ratio:1/0.85}
+  .text-block{order:2}
+  .actions{display:none}
+  .panel{
+    position:fixed; left:0; right:0; bottom:0; z-index:50;
+    border-radius:18px 18px 0 0; border:1px solid var(--line);
+    transform:translateY(105%); transition:transform .26s ease;
+    max-height:52vh; box-shadow:0 -10px 40px rgba(0,0,0,.22);
+  }
+  .panel.open{transform:translateY(0)}
+  .sheet-head{display:block; position:relative; padding:9px 12px 2px}
+  .panel-grab{display:block; width:38px; height:4px; border-radius:99px; background:var(--line); margin:0 auto}
+  .sheet-done{
+    position:absolute; right:12px; top:2px; border:0; background:transparent;
+    color:var(--accent); font-weight:700; font-size:13.5px; padding:4px 6px;
+  }
+  .tab-body{max-height:calc(52vh - 118px); padding-bottom:calc(16px + env(safe-area-inset-bottom))}
+  .ic{display:inline}
+  .lbl{display:none}
+  .mob-hint{display:block; margin:2px 0 0; color:var(--muted); font-size:12px}
+  .header-right .btn{padding:9px 10px}
+  .mobile-bar{display:flex}
+  /* тост не должен ложиться на нижнюю панель и на открытую шторку */
+  .toast{bottom:calc(74px + env(safe-area-inset-bottom)); max-width:calc(100vw - 32px)}
+  body.sheet-open .toast{bottom:calc(52vh + 14px)}
+  .mobile-bar .btn-primary{flex:1}
+  .header{padding:0 14px}
+  .user-name{max-width:86px; font-size:13px}
+}
+@media (min-width:961px){ .panel{position:sticky; top:calc(var(--header-h) + 22px)} }
+</style>
+</head>
+<body>
+
+<!-- ─────────────── Шапка ─────────────── -->
+<header class="header">
+  <div class="logo">STIKR</div>
+  <div class="header-right">
+    <button class="btn btn-ghost" data-act="gallery" id="galleryLink" aria-label="Моя галерея"><span class="ic"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.4"/><path d="m21 16-5.5-5.5L7 19"/></svg></span><span class="lbl">Моя галерея</span> <span class="pro-badge">PRO</span></button>
+    <div id="authArea"></div>
+  </div>
+</header>
+
+<!-- ─────────────── Основной экран ─────────────── -->
+<main class="wrap">
+  <section class="editor">
+    <div class="text-block">
+      <label class="field-label" for="textInput">Текст стикера</label>
+      <textarea id="textInput" class="text-input" rows="2" maxlength="40"
+                placeholder="Введите текст… (Enter — вторая строка)" spellcheck="false"></textarea>
+      <div class="text-meta">
+        <span>Максимум 2 строки</span>
+        <span><span id="charCount">0</span>/40</span>
+      </div>
+      <p class="mob-hint">Шрифт, обводка, стиль и форма — кнопка настроек внизу экрана.</p>
+    </div>
+
+    <div class="stage" id="stage">
+      <svg id="sticker" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 620" aria-label="Превью стикера"></svg>
+      <div class="stage-hint">Введите текст — стикер появится здесь</div>
+    </div>
+
+    <div class="actions">
+      <button class="btn btn-lg" data-act="random">🎲 Случайно</button>
+      <button class="btn btn-lg btn-primary" data-act="download">⬇ Скачать PNG</button>
+      <button class="btn btn-lg" data-act="save">💾 Сохранить <span class="pro-badge">PRO</span></button>
+    </div>
+  </section>
+
+  <!-- ─────────────── Панель настроек ─────────────── -->
+  <aside class="panel" id="panel">
+    <div class="sheet-head"><span class="panel-grab"></span><button class="sheet-done" data-act="settings">Готово</button></div>
+    <nav class="tabs" id="tabs">
+      <button class="tab active" data-tab="font">Шрифт</button>
+      <button class="tab" data-tab="stroke">Обводка</button>
+      <button class="tab" data-tab="style">Стиль</button>
+      <button class="tab" data-tab="shape">Форма</button>
+      <button class="tab" data-tab="presets">Пресеты</button>
+    </nav>
+
+    <!-- Шрифт -->
+    <div class="tab-body active" data-body="font" id="fontBody"></div>
+
+    <!-- Обводка -->
+    <div class="tab-body" data-body="stroke">
+      <div class="row">
+        <span class="row-label">Толщина</span>
+        <span class="row-value" id="strokeWVal">10 px</span>
+      </div>
+      <input type="range" id="strokeW" min="0" max="20" step="1" value="10">
+      <p class="hint" style="margin-top:2px">0 — стикер без обводки.</p>
+      <div class="group-title">Цвет обводки</div>
+      <div class="swatches">
+        <input type="color" id="strokeColor" value="#111111" aria-label="Цвет обводки">
+        <div class="swatches" id="strokeSwatches"></div>
+      </div>
+    </div>
+
+    <!-- Стиль -->
+    <div class="tab-body" data-body="style">
+      <div class="group-title">Цвет заливки</div>
+      <div class="swatches">
+        <input type="color" id="fillColor" value="#FFD400" aria-label="Цвет текста">
+        <div class="swatches" id="fillSwatches"></div>
+      </div>
+
+      <div class="group-title">Регистр</div>
+      <div class="seg" id="caseSeg">
+        <button data-case="as" class="active">Как есть</button>
+        <button data-case="upper">ЗАГЛАВНЫЕ</button>
+        <button data-case="lower">строчные</button>
+      </div>
+
+      <div class="group-title">Буквы</div>
+      <div class="row" style="margin-top:0">
+        <span class="row-label">Расстояние</span>
+        <span class="row-value" id="trackVal">0</span>
+      </div>
+      <input type="range" id="tracking" min="-5" max="40" step="1" value="0">
+
+      <div class="group-title">Тень</div>
+      <div class="row">
+        <span class="row-label">Включить</span>
+        <button class="switch" id="shadowSwitch" aria-label="Тень" aria-pressed="false"></button>
+      </div>
+      <p class="hint" style="margin:0 0 4px">Копия текста со сдвигом 5px вниз-вправо.</p>
+      <div class="row">
+        <span class="row-label" style="color:var(--muted);font-weight:500">Цвет тени</span>
+        <input type="color" id="shadowColor" value="#000000" aria-label="Цвет тени">
+      </div>
+    </div>
+
+    <!-- Форма -->
+    <div class="tab-body" data-body="shape">
+      <div class="cards" id="shapeCards"></div>
+      <div class="row" style="margin-bottom:0">
+        <span class="row-label">Сила изгиба</span>
+        <span class="row-value" id="strengthVal">50 %</span>
+      </div>
+      <input type="range" id="strength" min="0" max="100" step="1" value="50">
+    </div>
+
+    <!-- Пресеты -->
+    <div class="tab-body" data-body="presets">
+      <p class="hint" style="margin-top:0">Готовые сочетания настроек. Клик применяет всё сразу к вашему тексту.</p>
+      <div id="presetCards" style="display:grid;gap:10px;margin-top:12px"></div>
+    </div>
+
+    <div class="pro-banner" id="proBanner">
+      <b>Открой PRO</b>
+      <p>Пресеты оформления и своя галерея на 5 стикеров.</p>
+      <button class="btn" data-act="pro">Открыть PRO</button>
+    </div>
+  </aside>
+</main>
+
+<!-- ─────────────── Нижняя панель (телефон) ─────────────── -->
+<div class="mobile-bar">
+  <button class="icon-btn" data-act="settings" aria-label="Настройки"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 7h9M19 7h1M4 12h3M13 12h7M4 17h9M19 17h1"/><circle cx="16" cy="7" r="2.2"/><circle cx="10" cy="12" r="2.2"/><circle cx="16" cy="17" r="2.2"/></svg></button>
+  <button class="icon-btn" data-act="random" aria-label="Случайно">🎲</button>
+  <button class="btn btn-primary" data-act="download">⬇ Скачать PNG</button>
+  <button class="icon-btn" data-act="save" aria-label="Сохранить">💾</button>
+</div>
+<div class="sheet-back" id="sheetBack"></div>
+
+<!-- ─────────────── Окно входа / регистрации ─────────────── -->
+<div class="modal" id="authModal">
+  <div class="modal-back" data-close></div>
+  <div class="modal-box">
+    <div class="modal-head">
+      <h2 id="authTitle">Вход в аккаунт</h2>
+      <button class="close" data-close aria-label="Закрыть">×</button>
+    </div>
+    <div class="seg" id="authSeg" style="margin-bottom:14px">
+      <button data-mode="login" class="active">Вход</button>
+      <button data-mode="signup">Регистрация</button>
+    </div>
+    <p class="hint" id="authNote" style="margin:0 0 10px"></p>
+    <input class="input" id="authLogin" type="text" placeholder="Имя или почта" autocomplete="username">
+    <input class="input" id="authPass" type="password" placeholder="Пароль" autocomplete="current-password">
+    <p class="err" id="authErr"></p>
+    <button class="btn btn-primary btn-lg" id="authSubmit" style="width:100%">Войти</button>
+    <p class="hint">Аккаунт хранится только в этом браузере. Пароль по-настоящему не проверяется: это демоверсия без сервера.</p>
+  </div>
+</div>
+
+<!-- ─────────────── Окно PRO ─────────────── -->
+<div class="modal" id="proModal">
+  <div class="modal-back" data-close></div>
+  <div class="modal-box">
+    <div class="modal-head">
+      <h2>Тариф <span class="pro-badge">PRO</span></h2>
+      <button class="close" data-close aria-label="Закрыть">×</button>
+    </div>
+    <div class="price">299₽ <small>/ мес</small></div>
+    <p class="hint" style="margin-top:0">Шрифты, обводка, стиль и формы изгиба остаются бесплатными для всех.</p>
+    <ul class="pro-list">
+      <li>3 готовых пресета оформления в один клик</li>
+      <li>Своя галерея — до 5 сохранённых стикеров</li>
+      <li>Возврат к сохранённому стикеру и правка</li>
+    </ul>
+    <button class="btn btn-primary btn-lg" id="proSubmit" style="width:100%">Оформить</button>
+    <p class="hint">Оплата не подключена — это демоверсия. Статус PRO сохранится за вашим аккаунтом в этом браузере.</p>
+  </div>
+</div>
+
+<!-- ─────────────── Окно галереи ─────────────── -->
+<div class="modal" id="galModal">
+  <div class="modal-back" data-close></div>
+  <div class="modal-box wide">
+    <div class="modal-head">
+      <h2>Моя галерея <span id="galCount" style="color:var(--muted);font-weight:600;font-size:14px"></span></h2>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn" id="galClear">Очистить всё</button>
+        <button class="close" data-close aria-label="Закрыть">×</button>
+      </div>
+    </div>
+    <div id="galBody"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+
+/* ══════════════════════════════════════════════════════════════════
+   1. Данные: шрифты, цвета, формы, пресеты
+   ══════════════════════════════════════════════════════════════════ */
+
+// 14 шрифтов Google Fonts, все бесплатные.
+// Отличие от п.5.2 ТЗ: у 10 шрифтов из исходного списка (Anton, Archivo Black, Bebas Neue,
+// Permanent Marker, Bangers, Luckiest Guy, Fredoka, Baloo 2, Righteous, Space Grotesk)
+// в файлах нет кириллических глифов — русский текст в них подменялся системным шрифтом.
+// Заказчик согласовал замену на аналоги того же характера. Группы и их состав сохранены.
+const FONTS = [
+  {id:'oswald',    family:'Oswald',             weight:700, group:'Жирные, крупные'},
+  {id:'russo',     family:'Russo One',          weight:400, group:'Жирные, крупные'},
+  {id:'alumni',    family:'Alumni Sans',        weight:900, group:'Жирные, крупные'},
+  {id:'pattaya',   family:'Pattaya',            weight:400, group:'От руки маркером'},
+  {id:'hatch',     family:'Rubik Marker Hatch', weight:400, group:'От руки маркером'},
+  {id:'spray',     family:'Rubik Spray Paint',  weight:400, group:'От руки маркером'},
+  {id:'comfortaa', family:'Comfortaa',          weight:700, group:'Округлые'},
+  {id:'nunito',    family:'Nunito',             weight:900, group:'Округлые'},
+  {id:'bubbles',   family:'Rubik Bubbles',      weight:400, group:'Округлые'},
+  {id:'rubikmono', family:'Rubik Mono One',     weight:400, group:'Технологичные'},
+  {id:'unbounded', family:'Unbounded',          weight:700, group:'Технологичные'},
+  {id:'iso',       family:'Rubik Iso',          weight:400, group:'Технологичные'},
+  {id:'caveat',    family:'Caveat',             weight:700, group:'Рукописные'},
+  {id:'pacifico',  family:'Pacifico',           weight:400, group:'Рукописные'}
+];
+const FONT_GROUPS = ['Жирные, крупные','От руки маркером','Округлые','Технологичные','Рукописные'];
+const fontById = id => FONTS.find(f => f.id === id) || FONTS[0];
+
+// Кружочки-образцы: чёрный, белый + 4 (п.5.3)
+const STROKE_SWATCHES = ['#111111','#FFFFFF','#FFD400','#FF3D9A','#3A5CFF','#FF3B30'];
+const FILL_SWATCHES   = ['#111111','#FFFFFF','#FFD400','#FF3D9A','#3A5CFF','#FF3B30','#B4FF3D'];
+
+// Пары «цвет текста + цвет обводки» для кнопки «Случайно» (п.5.6)
+const RANDOM_PAIRS = [
+  ['#111111','#FFFFFF'], ['#FFFFFF','#111111'], ['#FFD400','#111111'],
+  ['#FF3D9A','#FFFFFF'], ['#3A5CFF','#FFFFFF'], ['#FF3B30','#FFFFFF'], ['#B4FF3D','#111111']
+];
+
+// Формы изгиба (п.5.5). icon — миниатюра линии на карточке.
+const SHAPES = [
+  {id:'straight', name:'Прямая',    icon:'M2 12 H58'},
+  {id:'archUp',   name:'Дуга вверх',icon:'M2 18 Q30 -2 58 18'},
+  {id:'archDown', name:'Дуга вниз', icon:'M2 6 Q30 26 58 6'},
+  {id:'wave',     name:'Волна',     icon:'M2 12 C12 2 20 2 30 12 C40 22 48 22 58 12'},
+  {id:'zigzag',   name:'Зигзаг',    icon:'M2 18 L17 6 L32 18 L47 6 L58 13'},
+  {id:'circle',   name:'По кругу',  icon:'M4 20 A22 22 0 0 1 56 20'}
+];
+
+// 3 фиксированных пресета (п.5.8)
+const PRESETS = [
+  {id:'comics', name:'Поп-комикс',  font:'spray',     fill:'#FFD400', stroke:'#111111', strokeW:14,
+   shape:'archUp', strength:55, caseMode:'upper', tracking:2,  shadow:true,  shadowColor:'#111111'},
+  {id:'street', name:'Стрит-маркер',font:'hatch',     fill:'#FF3D9A', stroke:'#FFFFFF', strokeW:12,
+   shape:'wave',   strength:45, caseMode:'as',    tracking:0,  shadow:false, shadowColor:'#000000'},
+  {id:'retro',  name:'Ретро-круг',  font:'russo',     fill:'#3A5CFF', stroke:'#FFFFFF', strokeW:10,
+   shape:'circle', strength:60, caseMode:'upper', tracking:6,  shadow:false, shadowColor:'#000000'}
+];
+
+const VB_W = 1000, VB_H = 620;          // система координат стикера
+const MAX_CHARS = 40, MAX_LINES = 2, GALLERY_LIMIT = 5;
+
+/* ══════════════════════════════════════════════════════════════════
+   2. Состояние + хранилище (localStorage, без сервера — п.6)
+   ══════════════════════════════════════════════════════════════════ */
+
+const LS = {
+  users:  'stikr_users',     // {login: {login, pass}}
+  session:'stikr_session',   // login текущего пользователя
+  pro:    'stikr_pro',       // {login: true}
+  gallery:'stikr_gallery'    // {login: [sticker, ...]}
+};
+const read  = (k, def) => { try { return JSON.parse(localStorage.getItem(k)) ?? def; } catch(e){ return def; } };
+const write = (k, v)   => { try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} };
+
+let state = {
+  text:'STIKR',
+  font:'oswald',
+  strokeW:10,
+  strokeColor:'#111111',
+  fill:'#FFD400',
+  caseMode:'as',
+  tracking:0,
+  shadow:false,
+  shadowColor:'#000000',
+  shape:'straight',
+  strength:50
+};
+
+let currentUser = null;                                  // login или null
+const isPro = () => !!(currentUser && read(LS.pro,{})[currentUser]);
+const galleryOf = u => (read(LS.gallery,{})[u] || []);
+
+/* ══════════════════════════════════════════════════════════════════
+   3. Отрисовка стикера (SVG + <textPath> — п.5.5 ТЗ)
+   ══════════════════════════════════════════════════════════════════ */
+
+const SVGNS = 'http://www.w3.org/2000/svg';
+let uid = 0;
+
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+// Текст с учётом регистра, разбитый на строки (максимум 2)
+function linesOf(st){
+  let t = String(st.text || '');
+  if (st.caseMode === 'upper') t = t.toLocaleUpperCase('ru-RU');
+  if (st.caseMode === 'lower') t = t.toLocaleLowerCase('ru-RU');
+  return t.split('\n').slice(0, MAX_LINES).filter(l => l.length > 0);
+}
+
+// Кривая, по которой ляжет строка. y — базовая линия, k — сила изгиба 0..1
+function pathFor(shape, strength, y, mult){
+  const k = Math.max(0, Math.min(100, strength)) / 100 * (mult ?? 1);
+  const x0 = 60, x1 = 940, cx = 500;
+  switch (shape) {
+    case 'archUp':   { const a = 160*k; return `M ${x0} ${y} Q ${cx} ${y-2*a} ${x1} ${y}`; }
+    case 'archDown': { const a = 160*k; return `M ${x0} ${y} Q ${cx} ${y+2*a} ${x1} ${y}`; }
+    case 'wave':     { const a = 95*k;
+      return `M ${x0} ${y} C 250 ${y-2*a} 350 ${y-2*a} ${cx} ${y} C 650 ${y+2*a} 750 ${y+2*a} ${x1} ${y}`; }
+    case 'zigzag':   { const a = 85*k;
+      return `M ${x0} ${y+a} L 280 ${y-a} L ${cx} ${y+a} L 720 ${y-a} L ${x1} ${y+a}`; }
+    case 'circle':   { const r = Math.round(1600 - 1220*k), cy = y + r;
+      return `M ${cx-r} ${cy} A ${r} ${r} 0 0 1 ${cx+r} ${cy}`; }
+    default:         return `M ${x0} ${y} L ${x1} ${y}`;
+  }
+}
+
+// Собирает содержимое <svg>. shadowPx — сдвиг тени в единицах viewBox (=5 экранных px)
+function renderInto(svgEl, st, shadowPx){
+  const lines = linesOf(st);
+  svgEl.setAttribute('viewBox', `0 0 ${VB_W} ${VB_H}`);
+  svgEl.innerHTML = '';
+  if (!lines.length) return;
+
+  const f  = fontById(st.font);
+  const two = lines.length > 1;
+  const ys = two ? [285, 465] : [400];
+  const baseSize = two ? 120 : 160;
+  const off = shadowPx ?? 8;
+  const id = 'sp' + (++uid);
+
+  const defs = document.createElementNS(SVGNS, 'defs');
+  const content = document.createElementNS(SVGNS, 'g');
+  content.setAttribute('id', 'content');
+
+  const family = `'${f.family}', sans-serif`;
+
+  lines.forEach((line, i) => {
+    const pid = `${id}_${i}`;
+    const p = document.createElementNS(SVGNS, 'path');
+    p.setAttribute('id', pid);
+    // на двух строках изгиб мягче, иначе строки налезают друг на друга
+    p.setAttribute('d', pathFor(st.shape, st.strength, ys[i], two ? 0.6 : 1));
+    p.setAttribute('fill', 'none');
+    defs.appendChild(p);
+
+    const makeText = (fill, stroke, strokeW, dx, dy) => {
+      const t = document.createElementNS(SVGNS, 'text');
+      t.setAttribute('font-family', family);
+      t.setAttribute('font-size', baseSize);
+      t.setAttribute('font-weight', f.weight);
+      t.setAttribute('letter-spacing', st.tracking);
+      t.setAttribute('fill', fill);
+      t.setAttribute('xml:space', 'preserve');
+      t.dataset.line = i;
+      if (stroke && strokeW > 0) {
+        t.setAttribute('stroke', stroke);
+        t.setAttribute('stroke-width', strokeW);
+        t.setAttribute('stroke-linejoin', 'round');
+        t.setAttribute('stroke-linecap', 'round');
+        t.setAttribute('paint-order', 'stroke');   // обводка рисуется под заливкой
+      }
+      if (dx || dy) t.setAttribute('transform', `translate(${dx},${dy})`);
+      const tp = document.createElementNS(SVGNS, 'textPath');
+      tp.setAttribute('href', '#' + pid);
+      tp.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', '#' + pid);
+      tp.setAttribute('startOffset', '50%');
+      tp.setAttribute('text-anchor', 'middle');
+      tp.textContent = line;
+      t.appendChild(tp);
+      return t;
+    };
+
+    // тень — копия текста со сдвигом вниз-вправо (п.5.4)
+    if (st.shadow) content.appendChild(makeText(st.shadowColor, st.shadowColor, st.strokeW, off, off));
+    content.appendChild(makeText(st.fill, st.strokeColor, st.strokeW, 0, 0));
+  });
+
+  svgEl.appendChild(defs);
+  svgEl.appendChild(content);
+  fitText(svgEl, baseSize, two ? 170 : 240);
+}
+
+// Подгоняет кегль так, чтобы строка помещалась на своей кривой
+function fitText(svgEl, baseSize, maxSize){
+  const texts = svgEl.querySelectorAll('#content > text');
+  if (!texts.length) return;
+  const paths = svgEl.querySelectorAll('defs > path');
+  const sizes = {};
+  try {
+    paths.forEach((p, i) => {
+      const avail = p.getTotalLength() * 0.95;
+      const probe = svgEl.querySelector(`#content > text[data-line="${i}"]`);
+      if (!probe || !avail) return;
+      let size = baseSize;
+      // 3 итерации: трекинг не масштабируется вместе с кеглем, поэтому уточняем
+      for (let step = 0; step < 3; step++) {
+        probe.setAttribute('font-size', size);
+        const len = probe.getComputedTextLength();
+        if (!len) break;
+        size = Math.max(24, Math.min(maxSize, size * (avail / len)));
+      }
+      sizes[i] = size;
+    });
+    // обе строки — одним кеглем, по меньшей
+    const common = Math.min.apply(null, Object.values(sizes).concat([maxSize]));
+    texts.forEach(t => t.setAttribute('font-size', common));
+  } catch(e){ /* измерения недоступны — остаётся базовый кегль */ }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   4. DOM и перерисовка превью
+   ══════════════════════════════════════════════════════════════════ */
+
+const $  = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+
+const svgEl   = $('#sticker');
+const stageEl = $('#stage');
+const textEl  = $('#textInput');
+
+function shadowUnits(){                       // 5 экранных px в единицах viewBox
+  const w = svgEl.getBoundingClientRect().width || 700;
+  return Math.round((VB_W / w) * 5 * 10) / 10;
+}
+
+function render(){
+  stageEl.classList.toggle('is-empty', !state.text.trim());
+  renderInto(svgEl, state, shadowUnits());
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   5. Сборка панели настроек
+   ══════════════════════════════════════════════════════════════════ */
+
+// Шрифты — карточки с превью, каждая набрана своим шрифтом (п.5.2)
+function buildFonts(){
+  $('#fontBody').innerHTML = FONT_GROUPS.map(g => `
+    <div class="group-title">${g}</div>
+    <div class="cards">
+      ${FONTS.filter(f => f.group === g).map(f => `
+        <button class="card ${state.font === f.id ? 'active' : ''}" data-font="${f.id}"
+                style="font-family:'${f.family}',sans-serif;font-weight:${f.weight}">
+          ${f.family}
+        </button>`).join('')}
+    </div>`).join('');
+}
+
+function buildSwatches(box, colors, key){
+  box.innerHTML = colors.map(c =>
+    `<button class="sw" data-color="${c}" style="background:${c}" aria-label="Цвет ${c}"></button>`).join('');
+  box.addEventListener('click', e => {
+    const b = e.target.closest('.sw'); if (!b) return;
+    state[key] = b.dataset.color;
+    syncUI(); render();
+  });
+}
+
+function buildShapes(){
+  $('#shapeCards').innerHTML = SHAPES.map(s => `
+    <button class="card ${state.shape === s.id ? 'active' : ''}" data-shape="${s.id}">
+      <svg viewBox="0 0 60 24" width="58" height="23" fill="none">
+        <path d="${s.icon}" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
+      </svg>
+      <span class="cap">${s.name}</span>
+    </button>`).join('');
+}
+
+function buildPresets(){
+  $('#presetCards').innerHTML = PRESETS.map(p => {
+    const f = fontById(p.font);
+    return `<div class="lockable ${isPro() ? '' : 'locked'}">
+      <button class="card" data-preset="${p.id}" style="min-height:74px;width:100%">
+        <span style="font-family:'${f.family}',sans-serif;font-weight:${f.weight};font-size:24px;
+                     color:${p.fill};-webkit-text-stroke:1.5px ${p.stroke};letter-spacing:.5px">STIKR</span>
+        <span class="cap">${p.name}</span>
+      </button>
+    </div>`;
+  }).join('');
+}
+
+// Состояние → элементы управления
+function syncUI(){
+  $$('#fontBody .card').forEach(c => c.classList.toggle('active', c.dataset.font === state.font));
+  $$('#shapeCards .card').forEach(c => c.classList.toggle('active', c.dataset.shape === state.shape));
+  $('#strokeW').value = state.strokeW;
+  $('#strokeWVal').textContent = state.strokeW + ' px';
+  $('#strokeColor').value = state.strokeColor;
+  $('#fillColor').value = state.fill;
+  $('#tracking').value = state.tracking;
+  $('#trackVal').textContent = state.tracking;
+  $('#strength').value = state.strength;
+  $('#strengthVal').textContent = state.strength + ' %';
+  $('#shadowSwitch').classList.toggle('on', state.shadow);
+  $('#shadowSwitch').setAttribute('aria-pressed', String(state.shadow));
+  $('#shadowColor').value = state.shadowColor;
+  $('#shadowColor').disabled = !state.shadow;
+  $$('#caseSeg button').forEach(b => b.classList.toggle('active', b.dataset.case === state.caseMode));
+  $$('#strokeSwatches .sw').forEach(b => b.classList.toggle('active', b.dataset.color.toLowerCase() === state.strokeColor.toLowerCase()));
+  $$('#fillSwatches .sw').forEach(b => b.classList.toggle('active', b.dataset.color.toLowerCase() === state.fill.toLowerCase()));
+  if (textEl.value !== state.text) textEl.value = state.text;
+  $('#charCount').textContent = state.text.length;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   6. Аккаунт (имитация — п.3 ТЗ)
+   ══════════════════════════════════════════════════════════════════ */
+
+function renderAuthArea(){
+  const area = $('#authArea');
+  if (currentUser){
+    area.innerHTML = `<span class="user-name" title="${esc(currentUser)}">${esc(currentUser)}</span>
+                      <button class="btn btn-ghost" data-act="logout" aria-label="Выйти"><span class="ic"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 5H6a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h8"/><path d="m17 8 4 4-4 4"/><path d="M21 12h-9"/></svg></span><span class="lbl">Выйти</span></button>`;
+  } else {
+    area.innerHTML = `<button class="btn" data-act="login" aria-label="Войти"><span class="ic"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="8" r="3.4"/><path d="M5 20c0-3.7 3.1-5.7 7-5.7s7 2 7 5.7"/></svg></span><span class="lbl">Войти</span></button>`;
+  }
+  const pro = isPro();
+  $('#proBanner').style.display = pro ? 'none' : '';
+  $$('[data-act="save"] .pro-badge, #galleryLink .pro-badge').forEach(b => b.style.display = pro ? 'none' : '');
+  $$('[data-act="save"]').forEach(b => b.classList.toggle('locked', !pro));
+  $('#galleryLink').classList.toggle('locked', !pro);
+  buildPresets();
+}
+
+let authMode = 'login';
+function openAuth(mode, note){
+  authMode = mode || 'login';
+  $$('#authSeg button').forEach(b => b.classList.toggle('active', b.dataset.mode === authMode));
+  $('#authTitle').textContent = authMode === 'login' ? 'Вход в аккаунт' : 'Регистрация';
+  $('#authSubmit').textContent = authMode === 'login' ? 'Войти' : 'Зарегистрироваться';
+  $('#authNote').textContent = note || '';
+  $('#authNote').style.display = note ? '' : 'none';
+  $('#authErr').textContent = '';
+  $('#authPass').value = '';
+  openModal('#authModal');
+  setTimeout(() => $('#authLogin').focus(), 60);
+}
+
+function submitAuth(){
+  const login = $('#authLogin').value.trim();
+  const pass  = $('#authPass').value;
+  const err   = $('#authErr');
+  if (login.length < 2) { err.textContent = 'Введите имя или почту (от 2 символов).'; return; }
+  if (pass.length  < 4) { err.textContent = 'Пароль — минимум 4 символа.'; return; }
+
+  const users = read(LS.users, {});
+  if (authMode === 'signup'){
+    if (users[login]) { err.textContent = 'Такой пользователь уже есть. Войдите.'; return; }
+    users[login] = { login, pass };
+    write(LS.users, users);
+  } else {
+    if (!users[login])         { err.textContent = 'Пользователь не найден. Зарегистрируйтесь.'; return; }
+    if (users[login].pass !== pass) { err.textContent = 'Неверный пароль.'; return; }
+  }
+  currentUser = login;
+  write(LS.session, login);
+  renderAuthArea();
+  closeModal('#authModal');
+  toast(authMode === 'signup' ? 'Аккаунт создан' : 'С возвращением, ' + login);
+}
+
+function logout(){
+  currentUser = null;
+  write(LS.session, null);
+  renderAuthArea();
+  toast('Вы вышли из аккаунта');
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   7. PRO (имитация — п.4 ТЗ)
+   ══════════════════════════════════════════════════════════════════ */
+
+function openPro(){
+  if (!currentUser){ openAuth('login', 'PRO привязывается к аккаунту — сначала войдите или зарегистрируйтесь.'); return; }
+  openModal('#proModal');
+}
+function activatePro(){
+  const map = read(LS.pro, {});
+  map[currentUser] = true;
+  write(LS.pro, map);
+  renderAuthArea();
+  closeModal('#proModal');
+  toast('PRO активирован — пресеты и галерея открыты');
+}
+// Единая проверка перед PRO-действием
+function requirePro(){
+  if (!currentUser){ openAuth('login', 'Войдите, чтобы пользоваться галереей и пресетами.'); return false; }
+  if (!isPro()){ openPro(); return false; }
+  return true;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   8. Галерея (PRO — п.5.9 ТЗ)
+   ══════════════════════════════════════════════════════════════════ */
+
+function saveSticker(){
+  if (!requirePro()) return;
+  if (!state.text.trim()){ toast('Сначала введите текст'); return; }
+  const all = read(LS.gallery, {});
+  const list = all[currentUser] || [];
+  if (list.length >= GALLERY_LIMIT){ toast(`Лимит ${GALLERY_LIMIT} стикеров — очистите галерею`); return; }
+  list.push({ ...state, savedAt: Date.now() });
+  all[currentUser] = list;
+  write(LS.gallery, all);
+  toast(`Стикер сохранён (${list.length}/${GALLERY_LIMIT})`);
+}
+
+function openGallery(){
+  if (!requirePro()) return;
+  const list = galleryOf(currentUser);
+  $('#galCount').textContent = `${list.length}/${GALLERY_LIMIT}`;
+  const body = $('#galBody');
+  if (!list.length){
+    body.innerHTML = `<div class="empty">Пока пусто. Настройте стикер и нажмите «💾 Сохранить».</div>`;
+  } else {
+    body.innerHTML = `<div class="gal-grid">${list.map((s, i) => `
+      <button class="gal-item" data-gal="${i}">
+        <div class="gal-pic"><svg viewBox="0 0 ${VB_W} ${VB_H}" data-thumb="${i}"></svg></div>
+        <div class="gal-cap"><b>${esc(s.text.replace(/\n/g,' ⏎ '))}</b>${fontById(s.font).family} · ${(SHAPES.find(x=>x.id===s.shape)||{}).name}</div>
+      </button>`).join('')}</div>`;
+  }
+  openModal('#galModal');
+  // отрисовка миниатюр — только после показа окна, иначе не работают измерения
+  requestAnimationFrame(() => {
+    list.forEach((s, i) => {
+      const el = $(`#galBody svg[data-thumb="${i}"]`);
+      if (el) renderInto(el, s, 10);
+    });
+  });
+}
+
+function clearGallery(){
+  const all = read(LS.gallery, {});
+  all[currentUser] = [];
+  write(LS.gallery, all);
+  openGallery();
+  toast('Галерея очищена');
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   9. Экспорт PNG с прозрачным фоном (п.5.7 ТЗ)
+   ══════════════════════════════════════════════════════════════════ */
+
+const fontCssCache = new Map();
+
+function b64(buf){
+  const bytes = new Uint8Array(buf);
+  let bin = '';
+  const CH = 0x8000;
+  for (let i = 0; i < bytes.length; i += CH) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + CH));
+  return btoa(bin);
+}
+
+// Шрифт нужно вшить в SVG, иначе в PNG буквы «съедут» на системный шрифт
+async function embeddedFontCss(f){
+  if (fontCssCache.has(f.id)) return fontCssCache.get(f.id);
+  const fam = encodeURIComponent(f.family).replace(/%20/g, '+');
+  const url = `https://fonts.googleapis.com/css2?family=${fam}:wght@${f.weight}&display=swap`;
+  const css = await fetch(url, { mode:'cors' }).then(r => { if(!r.ok) throw new Error('css'); return r.text(); });
+  const links = Array.from(new Set(Array.from(css.matchAll(/url\((https:\/\/[^)]+)\)/g), m => m[1])));
+  let out = css;
+  for (const link of links){
+    const buf = await fetch(link, { mode:'cors' }).then(r => { if(!r.ok) throw new Error('font'); return r.arrayBuffer(); });
+    out = out.split(link).join('data:font/woff2;base64,' + b64(buf));
+  }
+  fontCssCache.set(f.id, out);
+  return out;
+}
+
+// Границы нарисованного текста — чтобы не тащить в PNG пустые поля
+function contentBox(){
+  const g = svgEl.querySelector('#content');
+  const pad = state.strokeW / 2 + (state.shadow ? shadowUnits() : 0) + 18;
+  try {
+    const b = g.getBBox();
+    if (b && isFinite(b.width) && b.width > 4 && b.height > 4){
+      return { x: b.x - pad, y: b.y - pad, w: b.width + pad*2, h: b.height + pad*2 };
+    }
+  } catch(e){}
+  return { x:0, y:0, w:VB_W, h:VB_H };
+}
+
+async function downloadPNG(btn){
+  if (!state.text.trim()){ toast('Сначала введите текст'); return; }
+  const f = fontById(state.font);
+  const prev = btn ? btn.innerHTML : '';
+  if (btn){ btn.disabled = true; btn.innerHTML = 'Готовим PNG…'; }
+  try {
+    // 1. дождаться шрифта в самом браузере
+    try { await document.fonts.load(`${f.weight} 100px "${f.family}"`, state.text); await document.fonts.ready; } catch(e){}
+    render();
+
+    // 2. вшить шрифт внутрь SVG
+    let css = null;
+    try { css = await embeddedFontCss(f); }
+    catch(e){ toast('Шрифт не удалось вшить — проверьте интернет'); }
+
+    // 3. собрать клон нужного размера
+    const box = contentBox();
+    const clone = svgEl.cloneNode(true);
+    clone.setAttribute('xmlns', SVGNS);
+    clone.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+    clone.setAttribute('viewBox', `${box.x} ${box.y} ${box.w} ${box.h}`);
+    if (css){
+      const st = document.createElementNS(SVGNS, 'style');
+      st.setAttribute('type', 'text/css');
+      st.textContent = css;
+      clone.insertBefore(st, clone.firstChild);
+    }
+    // Разрешение ≥ 2× от превью (берём 3×, с разумными границами)
+    const pxPerUnit = (svgEl.getBoundingClientRect().width || 700) / VB_W;
+    let outW = Math.round(box.w * pxPerUnit * 3);
+    outW = Math.max(1200, Math.min(4000, outW));
+    const outH = Math.max(1, Math.round(outW * box.h / box.w));
+    clone.setAttribute('width', outW);
+    clone.setAttribute('height', outH);
+
+    // 4. SVG → PNG через canvas (фон не заливаем — остаётся прозрачным)
+    const src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(new XMLSerializer().serializeToString(clone));
+    const img = new Image();
+    img.decoding = 'sync';
+    await new Promise((res, rej) => { img.onload = res; img.onerror = () => rej(new Error('render')); img.src = src; });
+
+    const canvas = document.createElement('canvas');
+    canvas.width = outW; canvas.height = outH;
+    canvas.getContext('2d').drawImage(img, 0, 0, outW, outH);
+    const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
+    if (!blob) throw new Error('png');
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const name = state.text.trim().replace(/\s+/g,'-').replace(/[^\p{L}\p{N}\-_]/gu,'').slice(0,24) || 'sticker';
+    a.href = url; a.download = `stikr-${name}.png`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+    toast(`PNG скачан — ${outW}×${outH}, фон прозрачный`);
+  } catch(e){
+    toast('Не удалось собрать PNG: ' + (e.message || e));
+  } finally {
+    if (btn){ btn.disabled = false; btn.innerHTML = prev; }
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   10. Кнопка «Случайно» (п.5.6) и пресеты (п.5.8)
+   ══════════════════════════════════════════════════════════════════ */
+
+const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+
+function randomize(){
+  const pair = pick(RANDOM_PAIRS);
+  state.font      = pick(FONTS).id;
+  state.shape     = pick(SHAPES).id;
+  state.strength  = 20 + Math.floor(Math.random() * 81);
+  state.strokeW   = Math.floor(Math.random() * 21);
+  state.fill      = pair[0];
+  state.strokeColor = pair[1];
+  // текст пользователя не трогаем
+  syncUI(); render();
+}
+
+function applyPreset(id){
+  if (!requirePro()) return;
+  const p = PRESETS.find(x => x.id === id); if (!p) return;
+  Object.assign(state, {
+    font:p.font, fill:p.fill, strokeColor:p.stroke, strokeW:p.strokeW,
+    shape:p.shape, strength:p.strength, caseMode:p.caseMode,
+    tracking:p.tracking, shadow:p.shadow, shadowColor:p.shadowColor
+  });
+  syncUI(); render();
+  toast(`Пресет «${p.name}» применён`);
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   11. Окна, тосты, шторка
+   ══════════════════════════════════════════════════════════════════ */
+
+function openModal(sel){ $(sel).classList.add('open'); document.body.style.overflow = 'hidden'; }
+function closeModal(sel){
+  (sel ? [$(sel)] : $$('.modal.open')).forEach(m => m && m.classList.remove('open'));
+  if (!$('.modal.open') && !document.body.classList.contains('sheet-open')) document.body.style.overflow = '';
+}
+let toastTimer;
+function toast(msg){
+  const t = $('#toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2600);
+}
+function toggleSheet(open){
+  const p = $('#panel'), b = $('#sheetBack');
+  const on = open ?? !p.classList.contains('open');
+  p.classList.toggle('open', on);
+  b.classList.toggle('open', on);
+  document.body.classList.toggle('sheet-open', on);
+  document.body.style.overflow = (on || $('.modal.open')) ? 'hidden' : '';
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   12. События
+   ══════════════════════════════════════════════════════════════════ */
+
+// Ввод текста: до 40 символов, максимум 2 строки (п.5.1)
+textEl.addEventListener('input', () => {
+  let v = textEl.value.replace(/\r/g, '');
+  const parts = v.split('\n');
+  if (parts.length > MAX_LINES) v = parts.slice(0, MAX_LINES).join('\n');
+  if (v.length > MAX_CHARS) v = v.slice(0, MAX_CHARS);
+  if (v !== textEl.value) textEl.value = v;
+  state.text = v;
+  $('#charCount').textContent = v.length;
+  render();
+});
+textEl.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && textEl.value.split('\n').length >= MAX_LINES) e.preventDefault();
+});
+
+// Вкладки панели
+$('#tabs').addEventListener('click', e => {
+  const b = e.target.closest('.tab'); if (!b) return;
+  $$('.tab').forEach(t => t.classList.toggle('active', t === b));
+  $$('.tab-body').forEach(x => x.classList.toggle('active', x.dataset.body === b.dataset.tab));
+});
+
+// Шрифты и формы
+$('#fontBody').addEventListener('click', e => {
+  const c = e.target.closest('[data-font]'); if (!c) return;
+  state.font = c.dataset.font; syncUI(); render();
+});
+$('#shapeCards').addEventListener('click', e => {
+  const c = e.target.closest('[data-shape]'); if (!c) return;
+  state.shape = c.dataset.shape; syncUI(); render();
+});
+$('#presetCards').addEventListener('click', e => {
+  const c = e.target.closest('[data-preset]'); if (!c) return;
+  applyPreset(c.dataset.preset);
+});
+
+// Ползунки и цвета
+$('#strokeW').addEventListener('input', e => { state.strokeW = +e.target.value; $('#strokeWVal').textContent = state.strokeW + ' px'; render(); });
+$('#strength').addEventListener('input', e => { state.strength = +e.target.value; $('#strengthVal').textContent = state.strength + ' %'; render(); });
+$('#tracking').addEventListener('input', e => { state.tracking = +e.target.value; $('#trackVal').textContent = state.tracking; render(); });
+$('#strokeColor').addEventListener('input', e => { state.strokeColor = e.target.value; syncUI(); render(); });
+$('#fillColor').addEventListener('input',  e => { state.fill = e.target.value; syncUI(); render(); });
+$('#shadowColor').addEventListener('input',e => { state.shadowColor = e.target.value; render(); });
+$('#shadowSwitch').addEventListener('click', () => { state.shadow = !state.shadow; syncUI(); render(); });
+$('#caseSeg').addEventListener('click', e => {
+  const b = e.target.closest('[data-case]'); if (!b) return;
+  state.caseMode = b.dataset.case; syncUI(); render();
+});
+
+// Кнопки-действия (дублируются на телефоне — ловим делегированием)
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-act]'); if (!b) return;
+  switch (b.dataset.act){
+    case 'login':    openAuth('login'); break;
+    case 'logout':   logout(); break;
+    case 'pro':      openPro(); break;
+    case 'gallery':  openGallery(); break;
+    case 'save':     saveSticker(); break;
+    case 'random':   randomize(); break;
+    case 'download': downloadPNG(b); break;
+    case 'settings': toggleSheet(); break;
+  }
+});
+
+// Окна
+document.addEventListener('click', e => { if (e.target.closest('[data-close]')) closeModal(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape'){ closeModal(); toggleSheet(false); } });
+$('#sheetBack').addEventListener('click', () => toggleSheet(false));
+$('#authSeg').addEventListener('click', e => {
+  const b = e.target.closest('[data-mode]'); if (!b) return;
+  openAuth(b.dataset.mode, $('#authNote').textContent);
+});
+$('#authSubmit').addEventListener('click', submitAuth);
+$('#authPass').addEventListener('keydown', e => { if (e.key === 'Enter') submitAuth(); });
+$('#authLogin').addEventListener('keydown', e => { if (e.key === 'Enter') $('#authPass').focus(); });
+$('#proSubmit').addEventListener('click', activatePro);
+$('#galClear').addEventListener('click', clearGallery);
+$('#galBody').addEventListener('click', e => {
+  const b = e.target.closest('[data-gal]'); if (!b) return;
+  const s = galleryOf(currentUser)[+b.dataset.gal]; if (!s) return;
+  Object.assign(state, s); delete state.savedAt;
+  syncUI(); render(); closeModal('#galModal'); toggleSheet(false);
+  toast('Стикер открыт в редакторе');
+});
+
+// Перерисовка при смене размеров (сдвиг тени считается в экранных px)
+let rsTimer;
+window.addEventListener('resize', () => { clearTimeout(rsTimer); rsTimer = setTimeout(render, 150); });
+
+/* ══════════════════════════════════════════════════════════════════
+   13. Старт
+   ══════════════════════════════════════════════════════════════════ */
+
+(function init(){
+  buildFonts();
+  buildSwatches($('#strokeSwatches'), STROKE_SWATCHES, 'strokeColor');
+  buildSwatches($('#fillSwatches'), FILL_SWATCHES, 'fill');
+  buildShapes();
+
+  const saved = read(LS.session, null);
+  if (saved && read(LS.users, {})[saved]) currentUser = saved;
+  renderAuthArea();
+
+  textEl.value = state.text;
+  syncUI();
+  render();
+
+  // после подгрузки шрифтов кегль пересчитывается
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(render);
+  setTimeout(render, 1200);
+})();
+</script>
+</body>
+</html>
