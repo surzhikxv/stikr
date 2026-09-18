@@ -93,7 +93,7 @@ h1,h2,h3{margin:0}
   transition:border-color .15s, box-shadow .15s;
 }
 .text-input:focus{border-color:var(--accent); box-shadow:0 0 0 3px rgba(58,92,255,.13)}
-.text-meta{display:flex; justify-content:space-between; color:var(--muted); font-size:12px}
+.text-meta{display:flex; justify-content:flex-end; color:var(--muted); font-size:12px}
 
 /* Клетка = прозрачный фон, квадрат 8×8px (по ТЗ) */
 .stage{
@@ -317,7 +317,6 @@ input[type=color]{
       <textarea id="textInput" class="text-input" rows="2" maxlength="40"
                 placeholder="Введите текст… (Enter — вторая строка)" spellcheck="false"></textarea>
       <div class="text-meta">
-        <span>Максимум 2 строки</span>
         <span><span id="charCount">0</span>/40</span>
       </div>
       <p class="mob-hint">Шрифт, обводка, стиль и форма — кнопка настроек внизу экрана.</p>
@@ -355,7 +354,7 @@ input[type=color]{
         <span class="row-label">Толщина</span>
         <span class="row-value" id="strokeWVal">10 px</span>
       </div>
-      <input type="range" id="strokeW" min="0" max="20" step="1" value="10">
+      <input type="range" id="strokeW" min="0" max="60" step="1" value="10">
       <p class="hint" style="margin-top:2px">0 — стикер без обводки.</p>
       <div class="group-title">Цвет обводки</div>
       <div class="swatches">
@@ -385,6 +384,14 @@ input[type=color]{
         <span class="row-value" id="trackVal">0</span>
       </div>
       <input type="range" id="tracking" min="-5" max="40" step="1" value="0">
+
+      <div class="group-title">Строки</div>
+      <div class="row" style="margin-top:0">
+        <span class="row-label">Межстрочный интервал</span>
+        <span class="row-value" id="lineHVal">100 %</span>
+      </div>
+      <input type="range" id="lineHeight" min="50" max="150" step="5" value="100">
+      <p class="hint" style="margin-top:2px">Для текста в две строки — вторая строка по Enter.</p>
 
       <div class="group-title">Тень</div>
       <div class="row">
@@ -466,6 +473,11 @@ input[type=color]{
       <li>3 готовых пресета оформления в один клик</li>
       <li>Своя галерея — до 5 сохранённых стикеров</li>
       <li>Возврат к сохранённому стикеру и правка</li>
+      <li>Фото</li>
+      <li>Свободное размещение элементов</li>
+      <li>PRO-шрифты и эффекты</li>
+      <li>SVG</li>
+      <li>HD PNG</li>
     </ul>
     <button class="btn btn-primary btn-lg" id="proSubmit" style="width:100%">Оформить</button>
     <p class="hint">Оплата не подключена — это демоверсия. Статус PRO сохранится за вашим аккаунтом в этом браузере.</p>
@@ -574,6 +586,7 @@ let state = {
   fill:'#FFD400',
   caseMode:'as',
   tracking:0,
+  lineHeight:100,
   shadow:false,
   shadowColor:'#000000',
   shape:'straight',
@@ -627,72 +640,85 @@ function renderInto(svgEl, st, shadowPx){
 
   const f  = fontById(st.font);
   const two = lines.length > 1;
-  const ys = two ? [285, 465] : [400];
+  const bend = two ? 0.6 : 1;          // на двух строках изгиб мягче, иначе строки налезают друг на друга
   const baseSize = two ? 120 : 160;
   const off = shadowPx ?? 8;
   const id = 'sp' + (++uid);
+  const family = `'${f.family}', sans-serif`;
 
   const defs = document.createElementNS(SVGNS, 'defs');
   const content = document.createElementNS(SVGNS, 'g');
   content.setAttribute('id', 'content');
 
-  const family = `'${f.family}', sans-serif`;
-
-  lines.forEach((line, i) => {
-    const pid = `${id}_${i}`;
+  // Базовые линии для двух строк временные — пересчитываются после подбора кегля
+  const ys = two ? [285, 465] : [400];
+  lines.forEach((_, i) => {
     const p = document.createElementNS(SVGNS, 'path');
-    p.setAttribute('id', pid);
-    // на двух строках изгиб мягче, иначе строки налезают друг на друга
-    p.setAttribute('d', pathFor(st.shape, st.strength, ys[i], two ? 0.6 : 1));
+    p.setAttribute('id', `${id}_${i}`);
+    p.setAttribute('d', pathFor(st.shape, st.strength, ys[i], bend));
     p.setAttribute('fill', 'none');
     defs.appendChild(p);
-
-    const makeText = (fill, stroke, strokeW, dx, dy) => {
-      const t = document.createElementNS(SVGNS, 'text');
-      t.setAttribute('font-family', family);
-      t.setAttribute('font-size', baseSize);
-      t.setAttribute('font-weight', f.weight);
-      t.setAttribute('letter-spacing', st.tracking);
-      t.setAttribute('fill', fill);
-      t.setAttribute('xml:space', 'preserve');
-      t.dataset.line = i;
-      if (stroke && strokeW > 0) {
-        t.setAttribute('stroke', stroke);
-        t.setAttribute('stroke-width', strokeW);
-        t.setAttribute('stroke-linejoin', 'round');
-        t.setAttribute('stroke-linecap', 'round');
-        t.setAttribute('paint-order', 'stroke');   // обводка рисуется под заливкой
-      }
-      if (dx || dy) t.setAttribute('transform', `translate(${dx},${dy})`);
-      const tp = document.createElementNS(SVGNS, 'textPath');
-      tp.setAttribute('href', '#' + pid);
-      tp.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', '#' + pid);
-      tp.setAttribute('startOffset', '50%');
-      tp.setAttribute('text-anchor', 'middle');
-      tp.textContent = line;
-      t.appendChild(tp);
-      return t;
-    };
-
-    // тень — копия текста со сдвигом вниз-вправо (п.5.4)
-    if (st.shadow) content.appendChild(makeText(st.shadowColor, st.shadowColor, st.strokeW, off, off));
-    content.appendChild(makeText(st.fill, st.strokeColor, st.strokeW, 0, 0));
   });
+
+  const makeText = (i, fill, stroke, shift) => {
+    const t = document.createElementNS(SVGNS, 'text');
+    t.setAttribute('font-family', family);
+    t.setAttribute('font-size', baseSize);
+    t.setAttribute('font-weight', f.weight);
+    t.setAttribute('letter-spacing', st.tracking);
+    t.setAttribute('fill', fill);
+    t.setAttribute('xml:space', 'preserve');
+    t.dataset.line = i;
+    if (stroke && st.strokeW > 0) {
+      t.setAttribute('stroke', stroke);
+      t.setAttribute('stroke-width', st.strokeW);
+      t.setAttribute('stroke-linejoin', 'round');
+      t.setAttribute('stroke-linecap', 'round');
+    }
+    if (shift) t.setAttribute('transform', `translate(${shift},${shift})`);
+    const tp = document.createElementNS(SVGNS, 'textPath');
+    tp.setAttribute('href', `#${id}_${i}`);
+    tp.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', `#${id}_${i}`);
+    tp.setAttribute('startOffset', '50%');
+    tp.setAttribute('text-anchor', 'middle');
+    tp.textContent = lines[i];
+    t.appendChild(tp);
+    return t;
+  };
+
+  // Слои: тень → обводка всех строк → заливка всех строк. Если рисовать строки
+  // по очереди, толстая обводка второй строки ложится поверх букв первой.
+  const layers = [];
+  if (st.shadow) layers.push([st.shadowColor, st.shadowColor, off]);   // тень, п.5.4
+  if (st.strokeW > 0) layers.push([st.strokeColor, st.strokeColor, 0]);
+  layers.push([st.fill, null, 0]);
+  layers.forEach(([fill, stroke, shift]) =>
+    lines.forEach((_, i) => content.appendChild(makeText(i, fill, stroke, shift))));
 
   svgEl.appendChild(defs);
   svgEl.appendChild(content);
-  fitText(svgEl, baseSize, two ? 170 : 240);
+  const size = fitText(svgEl, baseSize, two ? 170 : 240, st.strokeW);
+
+  // Межстрочный интервал считается от итогового кегля. Сдвиг кривой по вертикали
+  // не меняет её длину, поэтому подобранный кегль остаётся верным.
+  if (two){
+    const gap = size * 1.06 * ((st.lineHeight ?? 100) / 100);
+    const mid = VB_H / 2 + size * 0.35;           // визуальный центр блока — по центру холста
+    [mid - gap / 2, mid + gap / 2].forEach((y, i) =>
+      defs.children[i].setAttribute('d', pathFor(st.shape, st.strength, y, bend)));
+  }
 }
 
 // Подгоняет кегль так, чтобы строка помещалась на своей кривой
-function fitText(svgEl, baseSize, maxSize){
+function fitText(svgEl, baseSize, maxSize, strokeW){
   const texts = svgEl.querySelectorAll('#content > text');
-  if (!texts.length) return;
+  if (!texts.length) return baseSize;
   const paths = svgEl.querySelectorAll('defs > path');
   const sizes = {};
   try {
     paths.forEach((p, i) => {
-      const avail = p.getTotalLength() * 0.95;
+      // обводка выступает за крайние буквы на половину толщины с каждой стороны
+      const avail = Math.max(60, p.getTotalLength() * 0.95 - (strokeW || 0));
       const probe = svgEl.querySelector(`#content > text[data-line="${i}"]`);
       if (!probe || !avail) return;
       let size = baseSize;
@@ -708,7 +734,8 @@ function fitText(svgEl, baseSize, maxSize){
     // обе строки — одним кеглем, по меньшей
     const common = Math.min.apply(null, Object.values(sizes).concat([maxSize]));
     texts.forEach(t => t.setAttribute('font-size', common));
-  } catch(e){ /* измерения недоступны — остаётся базовый кегль */ }
+    return common;
+  } catch(e){ return baseSize; /* измерения недоступны — остаётся базовый кегль */ }
 }
 
 /* ══════════════════════════════════════════════════════════════════
@@ -792,6 +819,8 @@ function syncUI(){
   $('#fillColor').value = state.fill;
   $('#tracking').value = state.tracking;
   $('#trackVal').textContent = state.tracking;
+  $('#lineHeight').value = state.lineHeight;
+  $('#lineHVal').textContent = state.lineHeight + ' %';
   $('#strength').value = state.strength;
   $('#strengthVal').textContent = state.strength + ' %';
   $('#shadowSwitch').classList.toggle('on', state.shadow);
@@ -1143,6 +1172,7 @@ $('#presetCards').addEventListener('click', e => {
 $('#strokeW').addEventListener('input', e => { state.strokeW = +e.target.value; $('#strokeWVal').textContent = state.strokeW + ' px'; render(); });
 $('#strength').addEventListener('input', e => { state.strength = +e.target.value; $('#strengthVal').textContent = state.strength + ' %'; render(); });
 $('#tracking').addEventListener('input', e => { state.tracking = +e.target.value; $('#trackVal').textContent = state.tracking; render(); });
+$('#lineHeight').addEventListener('input', e => { state.lineHeight = +e.target.value; $('#lineHVal').textContent = state.lineHeight + ' %'; render(); });
 $('#strokeColor').addEventListener('input', e => { state.strokeColor = e.target.value; syncUI(); render(); });
 $('#fillColor').addEventListener('input',  e => { state.fill = e.target.value; syncUI(); render(); });
 $('#shadowColor').addEventListener('input',e => { state.shadowColor = e.target.value; render(); });
